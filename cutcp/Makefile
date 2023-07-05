@@ -1,4 +1,7 @@
-# (c) 2010 The Board of Trustees of the University of Illinois.
-LANGUAGE=cuda
-SRCDIR_OBJS=main.o readatom.o output.o excl.o cutcpu.o cutoff6overlap.o
-APP_CUDALDFLAGS=-lm
+cutcp: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		main.c readatom.c output.c excl.c cutcpu.c cutoff6overlap.cu parboil_cuda.c \
+		-o cutcp
+
+clean :
+	rm cutcp

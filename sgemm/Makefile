@@ -1,7 +1,7 @@
-# (c) 2010 The Board of Trustees of the University of Illinois.
+sgemm: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		main.cu io.cc parboil_cuda.c \
+		-o sgemm
 
-LANGUAGE=cuda
-SRCDIR_OBJS=main.o io.o #compute_gold.o
-APP_CUDALDFLAGS=-lm -lstdc++ 
-APP_CFLAGS=-ffast-math -g3
-APP_CXXFLAGS=-ffast-math -g3
+clean :
+	rm sgemm

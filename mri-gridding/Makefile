@@ -1,7 +1,7 @@
-# (c) 2007 The Board of Trustees of the University of Illinois.
+mri-gridding: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		CPU_kernels.c CUDA_interface.cu scanLargeArray.cu sort.cu main.cu parboil_cuda.c \
+		-o mri-gridding
 
-LANGUAGE=cuda
-SRCDIR_OBJS=CPU_kernels.o CUDA_interface.o scanLargeArray.o sort.o main.o
-
-APP_CUDACFLAGS=-arch=compute_20
-
+clean :
+	rm mri-gridding

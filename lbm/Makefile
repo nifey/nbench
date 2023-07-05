@@ -1,4 +1,7 @@
-# (c) 2010 The Board of Trustees of the University of Illinois
+lbm: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		main.cc lbm.cu parboil_cuda.c \
+		-o lbm
 
-LANGUAGE=cuda
-SRCDIR_OBJS=main.o lbm.o
+clean :
+	rm lbm

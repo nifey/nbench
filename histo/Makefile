@@ -1,5 +1,7 @@
-# (c) 2007 The Board of Trustees of the University of Illinois.
+histo: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		main.cu histo_final.cu histo_intermediates.cu histo_main.cu histo_prescan.cu util.cu parboil_cuda.c \
+		-o histo
 
-LANGUAGE=cuda
-SRCDIR_OBJS=main.o histo_final.o histo_intermediates.o histo_main.o histo_prescan.o util.o
-APP_CUDACFLAGS=-arch compute_20
+clean :
+	rm histo

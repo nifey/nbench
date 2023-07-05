@@ -1,5 +1,7 @@
-# (c) Copyright 2007 The Board of Trustees of the University of Illinois.
+tpacf: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		args.cc model_io.cc main.cu parboil_cuda.c \
+		-o tpacf
 
-LANGUAGE=cuda
-SRCDIR_OBJS=args.o model_io.o main.o
-APP_CUDACFLAGS=-arch compute_12
+clean :
+	rm tpacf
