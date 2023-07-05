@@ -138,8 +138,8 @@ void computeQ_GPU(int numK, int numX,
 void createDataStructsCPU(int numK, int numX, float** phiMag,
 	 float** Qr, float** Qi)
 {
-  *phiMag = (float* ) memalign(16, numK * sizeof(float));
-  *Qr = (float*) memalign(16, numX * sizeof (float));
-  *Qi = (float*) memalign(16, numX * sizeof (float));
+  posix_memalign((void**) phiMag, 16, numK * sizeof(float));
+  posix_memalign((void**) Qr, 16, numX * sizeof (float));
+  posix_memalign((void**) Qi, 16, numX * sizeof (float));
 }
 

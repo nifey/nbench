@@ -1,7 +1,7 @@
-# (c) 2007 The Board of Trustees of the University of Illinois.
+mri-q: 
+	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+		file.cc main.cu parboil_cuda.c \
+		-o mri-q
 
-LANGUAGE=cuda
-
-SRCDIR_OBJS=file.o main.o
-APP_LDFLAGS=-lm -lstdc++
-APP_CUDACFLAGS=--use_fast_math
+clean :
+	rm mri-q
