@@ -133,11 +133,6 @@ int main(int argc, char** argv)
   cudaMemcpy(d_color, color, sizeof(int)*num_of_nodes, cudaMemcpyHostToDevice);
   cudaMemcpy(d_cost, h_cost, sizeof(int)*num_of_nodes, cudaMemcpyHostToDevice);
 
-  //bind the texture memory with global memory
-  cudaBindTexture(0,g_graph_node_ref,d_graph_nodes, sizeof(Node)*num_of_nodes);
-  cudaBindTexture(0,g_graph_edge_ref,d_graph_edges,sizeof(Edge)*num_of_edges);
-
-
   printf("Starting GPU kernel\n");
   cudaThreadSynchronize();
   pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
@@ -264,8 +259,6 @@ int main(int argc, char** argv)
   // copy result from device to host
   cudaMemcpy(h_cost, d_cost, sizeof(int)*num_of_nodes, cudaMemcpyDeviceToHost);
   cudaMemcpy(color, d_color, sizeof(int)*num_of_nodes, cudaMemcpyDeviceToHost);
-  cudaUnbindTexture(g_graph_node_ref);
-  cudaUnbindTexture(g_graph_edge_ref);
 
   cudaFree(d_graph_nodes);
   cudaFree(d_graph_edges);

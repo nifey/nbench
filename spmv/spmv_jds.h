@@ -8,10 +8,6 @@
   printf("CUDA error: %s, line %d\n", cudaGetErrorString(err), __LINE__); \
   return -1; }}
   
- 
-//TEXTURE memory
-texture<float,1> tex_x_float;
-
 //constant memory
 __constant__ int jds_ptr_int[5000];
 __constant__ int sh_zcnt_int[5000];

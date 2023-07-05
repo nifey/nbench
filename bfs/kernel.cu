@@ -35,8 +35,6 @@ UP_LIMIT are free to visit
 */
 
 #include "config.h"
-texture<Node> g_graph_node_ref;
-texture<Edge> g_graph_edge_ref;
 
 // A group of local queues of node IDs, used by an entire thread block.
 // Multiple queues are used to reduce memory contention.
@@ -148,15 +146,16 @@ visit_node(int pid,
 	   int *overflow,
 	   int *g_color,
 	   int *g_cost,
-	   int gray_shade)
+	   int gray_shade,
+	   Node cur_node,
+	   Edge *g_graph_edges)
 {
   g_color[pid] = BLACK;		// Mark this node as visited
   int cur_cost = g_cost[pid];	// Look up shortest-path distance to this node
-  Node cur_node = tex1Dfetch(g_graph_node_ref,pid);
 
   // For each outgoing edge
   for(int i = cur_node.x; i < cur_node.y + cur_node.x; i++) {
-    Edge cur_edge = tex1Dfetch(g_graph_edge_ref,i);
+    Edge cur_edge = g_graph_edges[i];
     int id = cur_edge.x;
     int cost = cur_edge.y;
     cost += cur_cost;
@@ -221,7 +220,7 @@ BFS_in_GPU_kernel(int *q1,
       // Visit a node from the current frontier; update costs, colors, and
       // output queue
       visit_node(pid, threadIdx.x & MOD_OP, local_q, overflow,
-		 g_color, g_cost, gray_shade);
+		 g_color, g_cost, gray_shade, g_graph_nodes[pid], g_graph_edges);
     }
     __syncthreads();
     if(threadIdx.x == 0){
@@ -313,7 +312,7 @@ BFS_kernel_multi_blk_inGPU(int *q1,
       // Visit a node from the current frontier; update costs, colors, and
       // output queue
       visit_node(pid, threadIdx.x & MOD_OP, local_q, overflow,
-		 g_color, g_cost, gray_shade);
+		 g_color, g_cost, gray_shade, g_graph_nodes[pid], g_graph_edges);
     }
     __syncthreads();
 
@@ -404,7 +403,7 @@ BFS_kernel(int *q1,
     // Visit a node from the current frontier; update costs, colors, and
     // output queue
     visit_node(q1[tid], threadIdx.x & MOD_OP, local_q, overflow,
-	       g_color, g_cost, gray_shade);
+	       g_color, g_cost, gray_shade, g_graph_nodes[q1[tid]], g_graph_edges);
   }
   __syncthreads();
 
