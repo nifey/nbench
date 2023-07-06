@@ -73,7 +73,9 @@ main( int argc, char** argv)
     }
 
   // split into x, y, and z arrays
-  REAL * h_x_data = (REAL*) malloc (3*f_mem_size);
+  REAL * h_x_data;
+  cudaMallocManaged((void**) &h_x_data, 3*f_mem_size);
+  CUDA_ERRCK
   REAL * h_y_data = h_x_data + NUM_ELEMENTS*(NUM_SETS+1);
   REAL * h_z_data = h_y_data + NUM_ELEMENTS*(NUM_SETS+1);
   for(int i = 0; i < (NUM_SETS+1); ++i)
@@ -91,44 +93,31 @@ main( int argc, char** argv)
   pb_SwitchToTimer( &timers, pb_TimerID_COPY );
 
   // allocate cuda memory to hold all points
-  REAL * d_x_data;
-  cudaMalloc((void**) & d_x_data, 3*f_mem_size);
-  CUDA_ERRCK
-  REAL * d_y_data = d_x_data + NUM_ELEMENTS*(NUM_SETS+1);
+  REAL * d_y_data = h_x_data + NUM_ELEMENTS*(NUM_SETS+1);
   REAL * d_z_data = d_y_data + NUM_ELEMENTS*(NUM_SETS+1);
 
   // allocate cuda memory to hold final histograms
   // (1 for dd, and NUM_SETS for dr and rr apiece)
   hist_t * d_hists;
-  cudaMalloc((void**) & d_hists, NUM_BINS*(NUM_SETS*2+1)*sizeof(hist_t) );
+  cudaMallocManaged((void**) & d_hists, NUM_BINS*(NUM_SETS*2+1)*sizeof(hist_t) );
   CUDA_ERRCK
   pb_SwitchToTimer( &timers, pb_TimerID_COMPUTE );
-
-  // allocate system memory for final histograms
-  hist_t *new_hists = (hist_t *) malloc(NUM_BINS*(NUM_SETS*2+1)*
-					sizeof(hist_t));
 
   // Initialize the boundary constants for bin search
   initBinB( &timers );
   CUDA_ERRCK
 
   // **===------------------ Kick off TPACF on CUDA------------------===**
-  pb_SwitchToTimer( &timers, pb_TimerID_COPY );
-  cudaMemcpy(d_x_data, h_x_data, 3*f_mem_size, cudaMemcpyHostToDevice);
-  CUDA_ERRCK
   pb_SwitchToTimer( &timers, pb_TimerID_KERNEL );
 
-  TPACF(d_hists, d_x_data, d_y_data, d_z_data);
+  TPACF(d_hists, h_x_data, d_y_data, d_z_data);
+  cudaDeviceSynchronize();
 
-  pb_SwitchToTimer( &timers, pb_TimerID_COPY );
-  cudaMemcpy(new_hists, d_hists, NUM_BINS*(NUM_SETS*2+1)*
-	     sizeof(hist_t), cudaMemcpyDeviceToHost);
-  CUDA_ERRCK
   pb_SwitchToTimer( &timers, pb_TimerID_COMPUTE );
   // **===-----------------------------------------------------------===**
 
   // references into output histograms
-  hist_t *dd_hist = new_hists;
+  hist_t *dd_hist = d_hists;
   hist_t *rr_hist = dd_hist + NUM_BINS;
   hist_t *dr_hist = rr_hist + NUM_BINS*NUM_SETS;
 
@@ -185,13 +174,9 @@ main( int argc, char** argv)
   if(outfile != stdout)
     fclose(outfile);
 
-  // cleanup memory
-  free(new_hists);
-  free( h_x_data);
-
   pb_SwitchToTimer( &timers, pb_TimerID_COPY );
+  cudaFree( h_x_data);
   cudaFree( d_hists );
-  cudaFree( d_x_data );
 
   pb_SwitchToTimer(&timers, pb_TimerID_NONE);
   pb_PrintTimerSet(&timers);

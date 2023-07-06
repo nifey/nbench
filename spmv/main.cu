@@ -59,7 +59,6 @@ int main(int argc, char** argv) {
 	int *h_perm;
 	int *h_nzcnt;
 	//vector
-	float *h_Ax_vector;
     float *h_x_vector;
 	
 	//device memory allocation
@@ -92,7 +91,6 @@ int main(int argc, char** argv) {
 	);
 	
 
-  h_Ax_vector=(float*)malloc(sizeof(float)*dim); 
   h_x_vector=(float*)malloc(sizeof(float)*dim);
   input_vec( parameters->inpFiles[1],h_x_vector,dim);
 
@@ -104,20 +102,20 @@ int main(int argc, char** argv) {
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 	//memory allocation
-	cudaMalloc((void **)&d_data, len*sizeof(float));
-	cudaMalloc((void **)&d_indices, len*sizeof(int));
-	cudaMalloc((void **)&d_ptr, depth*sizeof(int));
-	cudaMalloc((void **)&d_perm, dim*sizeof(int));
-	cudaMalloc((void **)&d_nzcnt, nzcnt_len*sizeof(int));
-	cudaMalloc((void **)&d_x_vector, dim*sizeof(float));
-	cudaMalloc((void **)&d_Ax_vector,dim*sizeof(float));
-	cudaMemset( (void *) d_Ax_vector, 0, dim*sizeof(float));
+	cudaMallocManaged((void **)&d_data, len*sizeof(float));
+	cudaMallocManaged((void **)&d_indices, len*sizeof(int));
+	cudaMallocManaged((void **)&d_ptr, depth*sizeof(int));
+	cudaMallocManaged((void **)&d_perm, dim*sizeof(int));
+	cudaMallocManaged((void **)&d_nzcnt, nzcnt_len*sizeof(int));
+	cudaMallocManaged((void **)&d_x_vector, dim*sizeof(float));
+	cudaMallocManaged((void **)&d_Ax_vector,dim*sizeof(float));
+	memset((void *) d_Ax_vector, 0, dim*sizeof(float));
 	
 	//memory copy
-	cudaMemcpy(d_data, h_data, len*sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_indices, h_indices, len*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_perm, h_perm, dim*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_x_vector, h_x_vector, dim*sizeof(int), cudaMemcpyHostToDevice);
+	memcpy(d_data, h_data, len*sizeof(float));
+	memcpy(d_indices, h_indices, len*sizeof(int));
+	memcpy(d_perm, h_perm, dim*sizeof(int));
+	memcpy(d_x_vector, h_x_vector, dim*sizeof(int));
 	cudaMemcpyToSymbol(jds_ptr_int, h_ptr, depth*sizeof(int));
 	cudaMemcpyToSymbol(sh_zcnt_int, h_nzcnt,nzcnt_len*sizeof(int));
 	
@@ -140,13 +138,9 @@ int main(int argc, char** argv) {
 							
     CUERR // check and clear any existing errors
 	
-	cudaThreadSynchronize();
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	//HtoD memory copy
-	cudaMemcpy(h_Ax_vector, d_Ax_vector,dim*sizeof(float), cudaMemcpyDeviceToHost);	
 
-	cudaThreadSynchronize();
 
 	cudaFree(d_data);
     cudaFree(d_indices);
@@ -154,13 +148,13 @@ int main(int argc, char** argv) {
 	cudaFree(d_perm);
     cudaFree(d_nzcnt);
     cudaFree(d_x_vector);
-	cudaFree(d_Ax_vector);
  
 	if (parameters->outFile) {
 		pb_SwitchToTimer(&timers, pb_TimerID_IO);
-		outputData(parameters->outFile,h_Ax_vector,dim);
+		outputData(parameters->outFile,d_Ax_vector,dim);
 		
 	}
+	cudaFree(d_Ax_vector);
 	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 	
 	free (h_data);
@@ -168,7 +162,6 @@ int main(int argc, char** argv) {
 	free (h_ptr);
 	free (h_perm);
 	free (h_nzcnt);
-	free (h_Ax_vector);
 	free (h_x_vector);
 	pb_SwitchToTimer(&timers, pb_TimerID_NONE);
 

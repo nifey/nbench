@@ -81,16 +81,13 @@ int main(int argc, char** argv) {
 	float *h_A0;
 	float *h_Anext;
 	//device
-	float *d_A0;
-	float *d_Anext;
 
 	
 
 
 	size=nx*ny*nz;
 	
-	h_A0=(float*)malloc(sizeof(float)*size);
-	h_Anext=(float*)malloc(sizeof(float)*size);
+	cudaMallocManaged((void **)&h_A0, size*sizeof(float));
   pb_SwitchToTimer(&timers, pb_TimerID_IO);
   FILE *fp = fopen(parameters->inpFiles[0], "rb");
 	read_data(h_A0, nx,ny,nz,fp);
@@ -98,13 +95,10 @@ int main(int argc, char** argv) {
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 	//memory allocation
-	cudaMalloc((void **)&d_A0, size*sizeof(float));
-	cudaMalloc((void **)&d_Anext, size*sizeof(float));
-	cudaMemset(d_Anext,0,size*sizeof(float));
+	cudaMallocManaged((void **)&h_Anext, size*sizeof(float));
+	memset(h_Anext,0,size*sizeof(float));
 
-	//memory copy
-	cudaMemcpy(d_A0, h_A0, size*sizeof(float), cudaMemcpyHostToDevice);
-  cudaMemcpy(d_Anext, d_A0, size*sizeof(float), cudaMemcpyDeviceToDevice);
+	memcpy(h_Anext, h_A0, size*sizeof(float));
 
 	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
   
@@ -124,24 +118,21 @@ int main(int argc, char** argv) {
 	pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 	for(int t=0;t<iteration;t++)
 	{
-		block2D_hybrid_coarsen_x<<<grid, block,sh_size>>>(c0,c1, d_A0, d_Anext, nx, ny,  nz);
-    float *d_temp = d_A0;
-    d_A0 = d_Anext;
-    d_Anext = d_temp;
+		block2D_hybrid_coarsen_x<<<grid, block,sh_size>>>(c0,c1, h_A0, h_Anext, nx, ny,  nz);
+    float *d_temp = h_A0;
+    h_A0 = h_Anext;
+    h_Anext = d_temp;
 
 	}
   CUERR // check and clear any existing errors
   
-  float *d_temp = d_A0;
-  d_A0 = d_Anext;
-  d_Anext = d_temp;  
+  float *d_temp = h_A0;
+  h_A0 = h_Anext;
+  h_Anext = d_temp;  
 	
 	
 	
 	pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	cudaMemcpy(h_Anext, d_Anext,size*sizeof(float), cudaMemcpyDeviceToHost);
-	cudaFree(d_A0);
-  cudaFree(d_Anext);
  
 	if (parameters->outFile) {
 		 pb_SwitchToTimer(&timers, pb_TimerID_IO);
@@ -150,8 +141,8 @@ int main(int argc, char** argv) {
 	}
 	pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 		
-	free (h_A0);
-	free (h_Anext);
+	cudaFree(h_A0);
+  cudaFree(h_Anext);
 	pb_SwitchToTimer(&timers, pb_TimerID_NONE);
 
 	pb_PrintTimerSet(&timers);

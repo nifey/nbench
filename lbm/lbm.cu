@@ -50,13 +50,8 @@ void CUDA_LBM_performStreamCollide( LBM_Grid srcGrid, LBM_Grid dstGrid ) {
 void LBM_allocateGrid( float** ptr ) {
 	const size_t size   = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
 
-	*ptr = (float*)malloc( size );
-	if( ! *ptr ) {
-		printf( "LBM_allocateGrid: could not allocate %.1f MByte\n",
-				size / (1024.0*1024.0) );
-		exit( 1 );
-	}
-
+	cudaMallocManaged(ptr, size);
+        CUDA_ERRCK;
 	memset( *ptr, 0, size );
 
 	printf( "LBM_allocateGrid: allocated %.1f MByte\n",
@@ -66,23 +61,7 @@ void LBM_allocateGrid( float** ptr ) {
 
 /******************************************************************************/
 
-void CUDA_LBM_allocateGrid( float** ptr ) {
-	const size_t size = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
-	cudaMalloc((void**)ptr, size);
-        CUDA_ERRCK;
-	*ptr += REAL_MARGIN;
-}
-
-/*############################################################################*/
-
 void LBM_freeGrid( float** ptr ) {
-	free( *ptr-REAL_MARGIN );
-	*ptr = NULL;
-}
-
-/******************************************************************************/
-
-void CUDA_LBM_freeGrid( float** ptr ) {
 	cudaFree( *ptr-REAL_MARGIN );
 	*ptr = NULL;
 }
@@ -119,18 +98,8 @@ void LBM_initializeGrid( LBM_Grid grid ) {
 
 /******************************************************************************/
 
-void CUDA_LBM_initializeGrid( float** d_grid, float** h_grid ) {
-	const size_t size   = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
-
-	cudaMemcpy(*d_grid - REAL_MARGIN, *h_grid - REAL_MARGIN, size, cudaMemcpyHostToDevice);
-        CUDA_ERRCK;
-}
-
-void CUDA_LBM_getDeviceGrid( float** d_grid, float** h_grid ) {
-	const size_t size   = TOTAL_PADDED_CELLS*N_CELL_ENTRIES*sizeof( float ) + 2*TOTAL_MARGIN*sizeof( float );
-        cudaThreadSynchronize();
-        CUDA_ERRCK;
-	cudaMemcpy(*h_grid - REAL_MARGIN, *d_grid - REAL_MARGIN, size, cudaMemcpyDeviceToHost);
+void CUDA_LBM_syncrhonize() {
+        cudaDeviceSynchronize();
         CUDA_ERRCK;
 }
 

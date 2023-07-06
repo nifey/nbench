@@ -113,20 +113,17 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  unsigned int* img = (unsigned int*) malloc (img_width*img_height*sizeof(unsigned int));
-  unsigned char* histo = (unsigned char*) calloc (histo_width*histo_height, sizeof(unsigned char));
-
-  result = fread(img, sizeof(unsigned int), img_width*img_height, f);
-
+  int even_width = ((img_width+1)/2)*2;
+  unsigned int* img;
+  cudaMallocManaged(&img, even_width*img_height*sizeof(unsigned int));
+  for (int y=0; y < img_height; y++){
+    if (fread(&img[y * even_width], sizeof(unsigned int), img_width, f) != img_width) {
+	fputs("Error reading input array from file\n", stderr);
+	return -1;
+    }
+  }
   fclose(f);
 
-  if (result != img_width*img_height){
-    fputs("Error reading input array from file\n", stderr);
-    return -1;
-  }
-
-  int even_width = ((img_width+1)/2)*2;
-  unsigned int* input;
   unsigned int* ranges;
   uchar4* sm_mappings;
   unsigned int* global_subhisto;
@@ -134,41 +131,33 @@ int main(int argc, char* argv[]) {
   unsigned int* global_overflow;
   unsigned char* final_histo;
 
-  cudaMalloc((void**)&input           , even_width*(((img_height+UNROLL-1)/UNROLL)*UNROLL)*sizeof(unsigned int));
-  cudaMalloc((void**)&ranges          , 2*sizeof(unsigned int));
-  cudaMalloc((void**)&sm_mappings     , img_width*img_height*sizeof(uchar4));
-  cudaMalloc((void**)&global_subhisto , BLOCK_X*img_width*histo_height*sizeof(unsigned int));
-  cudaMalloc((void**)&global_histo    , img_width*histo_height*sizeof(unsigned short));
-  cudaMalloc((void**)&global_overflow , img_width*histo_height*sizeof(unsigned int));
-  cudaMalloc((void**)&final_histo     , img_width*histo_height*sizeof(unsigned char));
+  cudaMallocManaged((void**)&ranges          , 2*sizeof(unsigned int));
+  cudaMallocManaged((void**)&sm_mappings     , img_width*img_height*sizeof(uchar4));
+  cudaMallocManaged((void**)&global_subhisto , BLOCK_X*img_width*histo_height*sizeof(unsigned int));
+  cudaMallocManaged((void**)&global_histo    , img_width*histo_height*sizeof(unsigned short));
+  cudaMallocManaged((void**)&global_overflow , img_width*histo_height*sizeof(unsigned int));
+  cudaMallocManaged((void**)&final_histo     , img_width*histo_height*sizeof(unsigned char));
 
-  cudaMemset(final_histo , 0 , img_width*histo_height*sizeof(unsigned char));
-
-  for (int y=0; y < img_height; y++){
-    cudaMemcpy(&(((unsigned int*)input)[y*even_width]),&img[y*img_width],img_width*sizeof(unsigned int), cudaMemcpyHostToDevice);
-  }
+  memset(final_histo , 0 , img_width*histo_height*sizeof(unsigned char));
 
   pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
   for (int iter = 0; iter < numIterations; iter++) {
-    unsigned int ranges_h[2] = {UINT32_MAX, 0};
+    ranges[0] = UINT32_MAX;
+    ranges[1] = 0;
 
-    cudaMemcpy(ranges,ranges_h, 2*sizeof(unsigned int), cudaMemcpyHostToDevice);
-    
     pb_SwitchToSubTimer(&timers, prescans , pb_TimerID_KERNEL);
 
-    histo_prescan_kernel<<<dim3(PRESCAN_BLOCKS_X),dim3(PRESCAN_THREADS)>>>((unsigned int*)input, img_height*img_width, ranges);
+    histo_prescan_kernel<<<dim3(PRESCAN_BLOCKS_X),dim3(PRESCAN_THREADS)>>>((unsigned int*)img, img_height*img_width, ranges);
     
     pb_SwitchToSubTimer(&timers, postpremems , pb_TimerID_KERNEL);
 
-    cudaMemcpy(ranges_h,ranges, 2*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-
-    cudaMemset(global_subhisto,0,img_width*histo_height*sizeof(unsigned int));
+    memset(global_subhisto,0,img_width*histo_height*sizeof(unsigned int));
     
     pb_SwitchToSubTimer(&timers, intermediates, pb_TimerID_KERNEL);
 
     histo_intermediates_kernel<<<dim3((img_height + UNROLL-1)/UNROLL), dim3((img_width+1)/2)>>>(
-                (uint2*)(input),
+                (uint2*)(img),
                 (unsigned int)img_height,
                 (unsigned int)img_width,
                 (img_width+1)/2,
@@ -178,10 +167,10 @@ int main(int argc, char* argv[]) {
     pb_SwitchToSubTimer(&timers, mains, pb_TimerID_KERNEL);
     
     
-    histo_main_kernel<<<dim3(BLOCK_X, ranges_h[1]-ranges_h[0]+1), dim3(THREADS)>>>(
+    histo_main_kernel<<<dim3(BLOCK_X, ranges[1]-ranges[0]+1), dim3(THREADS)>>>(
                 (uchar4*)(sm_mappings),
                 img_height*img_width,
-                ranges_h[0], ranges_h[1],
+                ranges[0], ranges[1],
                 histo_height, histo_width,
                 (unsigned int*)(global_subhisto),
                 (unsigned int*)(global_histo),
@@ -191,7 +180,7 @@ int main(int argc, char* argv[]) {
     pb_SwitchToSubTimer(&timers, finals, pb_TimerID_KERNEL);
     
     histo_final_kernel<<<dim3(BLOCK_X*3), dim3(512)>>>(
-                ranges_h[0], ranges_h[1],
+                ranges[0], ranges[1],
                 histo_height, histo_width,
                 (unsigned int*)(global_subhisto),
                 (unsigned int*)(global_histo),
@@ -201,25 +190,19 @@ int main(int argc, char* argv[]) {
   }
   pb_SwitchToTimer(&timers, pb_TimerID_IO);
 
-  cudaMemcpy(histo,final_histo, histo_height*histo_width*sizeof(unsigned char), cudaMemcpyDeviceToHost);
-
-  cudaFree(input);
+  cudaFree(img);
   cudaFree(ranges);
   cudaFree(sm_mappings);
   cudaFree(global_subhisto);
   cudaFree(global_histo);
   cudaFree(global_overflow);
-  cudaFree(final_histo);
 
   if (parameters->outFile) {
-    dump_histo_img(histo, histo_height, histo_width, parameters->outFile);
+    dump_histo_img(final_histo, histo_height, histo_width, parameters->outFile);
   }
 
+  cudaFree(final_histo);
   pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-
-  free(img);
-  free(histo);
-
   pb_SwitchToTimer(&timers, pb_TimerID_NONE);
 
   printf("\n");

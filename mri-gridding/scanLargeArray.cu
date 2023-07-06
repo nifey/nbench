@@ -219,8 +219,8 @@ void scanLargeArray( unsigned int gridNumElements, unsigned int* data_d) {
       }
     }
 
-    cudaMalloc( (void**) &inter_d, current_max*sizeof(unsigned int));
-    cudaMemset (inter_d, 0, current_max*sizeof(unsigned int));
+    cudaMallocManaged( (void**) &inter_d, current_max*sizeof(unsigned int));
+    memset (inter_d, 0, current_max*sizeof(unsigned int));
 
     for (unsigned int i=0; i < (size+GRID_SIZE-1)/GRID_SIZE; i++){
         unsigned int gridSize = ((size-(i*GRID_SIZE)) > GRID_SIZE) ? GRID_SIZE : (size-i*GRID_SIZE);

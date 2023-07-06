@@ -35,24 +35,6 @@
 #include "file.h"
 #include "computeQ.cu"
 
-static void
-setupMemoryGPU(int num, int size, float*& dev_ptr, float*& host_ptr)
-{
-  cudaMalloc ((void **) &dev_ptr, num * size);
-  CUDA_ERRCK;
-  cudaMemcpy (dev_ptr, host_ptr, num * size, cudaMemcpyHostToDevice);
-  CUDA_ERRCK;
-}
-
-static void
-cleanupMemoryGPU(int num, int size, float *& dev_ptr, float * host_ptr)
-{
-  cudaMemcpy (host_ptr, dev_ptr, num * size, cudaMemcpyDeviceToHost);
-  CUDA_ERRCK;
-  cudaFree(dev_ptr);
-  CUDA_ERRCK;
-}
-
 int
 main (int argc, char *argv[]) {
   int numX, numK;		/* Number of X and K values */
@@ -109,32 +91,20 @@ main (int argc, char *argv[]) {
 
   pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 
-  /* Create CPU data structures */
-  createDataStructsCPU(numK, numX, &phiMag, &Qr, &Qi);
-
   /* GPU section 1 (precompute PhiMag) */
   {
-    /* Mirror several data structures on the device */
-    float *phiR_d, *phiI_d;
-    float *phiMag_d;
-
     pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-    setupMemoryGPU(numK, sizeof(float), phiR_d, phiR);
-    setupMemoryGPU(numK, sizeof(float), phiI_d, phiI);
-    cudaMalloc((void **)&phiMag_d, numK * sizeof(float));
+    cudaMallocManaged((void **)&phiMag, numK * sizeof(float));
     CUDA_ERRCK;
 
     cudaThreadSynchronize();
     pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
-    computePhiMag_GPU(numK, phiR_d, phiI_d, phiMag_d);
+    computePhiMag_GPU(numK, phiR, phiI, phiMag);
 
     cudaThreadSynchronize();
     pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 
-    cleanupMemoryGPU(numK, sizeof(float), phiMag_d, phiMag);
-    cudaFree(phiR_d);
-    cudaFree(phiI_d);
   }
 
   pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
@@ -147,38 +117,26 @@ main (int argc, char *argv[]) {
     kVals[k].PhiMag = phiMag[k];
   }
 
-  free(phiMag);
+  cudaFree(phiMag);
 
   /* GPU section 2 */
   {
-    float *x_d, *y_d, *z_d;
-    float *Qr_d, *Qi_d;
-
     pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 
-    setupMemoryGPU(numX, sizeof(float), x_d, x);
-    setupMemoryGPU(numX, sizeof(float), y_d, y);
-    setupMemoryGPU(numX, sizeof(float), z_d, z);
-    cudaMalloc((void **)&Qr_d, numX * sizeof(float));
+    cudaMallocManaged((void **)&Qr, numX * sizeof(float));
     CUDA_ERRCK;
-    cudaMemset((void *)Qr_d, 0, numX * sizeof(float));
-    cudaMalloc((void **)&Qi_d, numX * sizeof(float));
+    memset((void *)Qr, 0, numX * sizeof(float));
+    cudaMallocManaged((void **)&Qi, numX * sizeof(float));
     CUDA_ERRCK;
-    cudaMemset((void *)Qi_d, 0, numX * sizeof(float));
+    memset((void *)Qi, 0, numX * sizeof(float));
 
     cudaThreadSynchronize();
     pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
-    computeQ_GPU(numK, numX, x_d, y_d, z_d, kVals, Qr_d, Qi_d);
+    computeQ_GPU(numK, numX, x, y, z, kVals, Qr, Qi);
 
     cudaThreadSynchronize();
     pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-
-    cudaFree(x_d);
-    cudaFree(y_d);
-    cudaFree(z_d);
-    cleanupMemoryGPU(numX, sizeof(float), Qr_d, Qr);
-    cleanupMemoryGPU(numX, sizeof(float), Qi_d, Qi);
   }
 
   pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
@@ -191,17 +149,17 @@ main (int argc, char *argv[]) {
       pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
     }
 
-  free (kx);
-  free (ky);
-  free (kz);
-  free (x);
-  free (y);
-  free (z);
-  free (phiR);
-  free (phiI);
+  cudaFree (kx);
+  cudaFree (ky);
+  cudaFree (kz);
+  cudaFree (x);
+  cudaFree (y);
+  cudaFree (z);
+  cudaFree (phiR);
+  cudaFree (phiI);
   free (kVals);
-  free (Qr);
-  free (Qi);
+  cudaFree (Qr);
+  cudaFree (Qi);
 
   pb_SwitchToTimer(&timers, pb_TimerID_NONE);
   pb_PrintTimerSet(&timers);

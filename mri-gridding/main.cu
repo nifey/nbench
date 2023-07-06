@@ -150,7 +150,7 @@ int main (int argc, char* argv[]){
   cmplx* gridData_gold; //Gold Output Data
   float* sampleDensity_gold; //Gold Output Data
 
-  cudaMallocHost((void**)&samples, params.numSamples*sizeof(ReconstructionSample));
+  cudaMallocManaged((void**)&samples, params.numSamples*sizeof(ReconstructionSample));
   CUERR;
   if (samples == NULL){
     printf("ERROR: Unable to allocate memory for input data\n");
@@ -190,8 +190,8 @@ int main (int argc, char* argv[]){
 
   gridding_Gold(n, params, samples, LUT, sizeLUT, gridData_gold, sampleDensity_gold);
 
-  cudaMallocHost((void**)&gridData, gridNumElems*sizeof(cmplx));
-  cudaMallocHost((void**)&sampleDensity, gridNumElems*sizeof(float));
+  cudaMallocManaged((void**)&gridData, gridNumElems*sizeof(cmplx));
+  cudaMallocManaged((void**)&sampleDensity, gridNumElems*sizeof(float));
   CUERR;
   if (sampleDensity == NULL || gridData == NULL){
     printf("ERROR: Unable to allocate memory for output data\n");
@@ -232,9 +232,9 @@ int main (int argc, char* argv[]){
   if (params.useLUT){
     free(LUT);
   }
-  cudaFreeHost(samples);
-  cudaFreeHost(gridData);
-  cudaFreeHost(sampleDensity);
+  cudaFree(samples);
+  cudaFree(gridData);
+  cudaFree(sampleDensity);
   free(gridData_gold);
   free(sampleDensity_gold);
 

@@ -14,7 +14,7 @@
 #include<iostream>
 #include<vector>
 
-bool readColMajorMatrixFile(const char *fn, int &nr_row, int &nr_col, std::vector<float>&v)
+bool readColMajorMatrixFile(const char *fn, int &nr_row, int &nr_col, float **v)
 {
   std::cerr << "Opening file:"<< fn << std::endl;
   std::fstream f(fn, std::fstream::in);
@@ -26,17 +26,21 @@ bool readColMajorMatrixFile(const char *fn, int &nr_row, int &nr_col, std::vecto
   f >> nr_row;
   f >> nr_col;
 
-  float data;
+  cudaMallocManaged(v, nr_row * nr_col * sizeof(float));
   std::cerr << "Matrix dimension: "<<nr_row<<"x"<<nr_col<<std::endl;
+  float data;
+  unsigned k = 0;
   while (f.good() ) {
     f >> data;
-    v.push_back(data);
+    if (k < nr_row * nr_col) {
+	*(*v + k) =  data;
+	k++;
+    }
   }
-  v.pop_back(); // remove the duplicated last element
 
 }
 
-bool writeColMajorMatrixFile(const char *fn, int nr_row, int nr_col, std::vector<float>&v)
+bool writeColMajorMatrixFile(const char *fn, int nr_row, int nr_col, float *v)
 {
   std::cerr << "Opening file:"<< fn << " for write." << std::endl;
   std::fstream f(fn, std::fstream::out);
@@ -49,7 +53,7 @@ bool writeColMajorMatrixFile(const char *fn, int nr_row, int nr_col, std::vector
 
   float data;
   std::cerr << "Matrix dimension: "<<nr_row<<"x"<<nr_col<<std::endl;
-  for (int i = 0; i < v.size(); ++i) {
+  for (int i = 0; i < nr_row * nr_col; ++i) {
     f << v[i] << ' ';
   }
   f << "\n";

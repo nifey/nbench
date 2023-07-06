@@ -228,9 +228,9 @@ void sort (int numElems, unsigned int max_value, unsigned int* &dkeys, unsigned 
   unsigned int *dhisto;
   unsigned int *dkeys_o, *dvalues_o;
 
-  cudaMalloc((void**)&dhisto, (1<<BITS)*grid.x*sizeof(unsigned int));
-  cudaMalloc((void**)&dkeys_o, numElems*sizeof(unsigned int));
-  cudaMalloc((void**)&dvalues_o, numElems*sizeof(unsigned int));
+  cudaMallocManaged((void**)&dhisto, (1<<BITS)*grid.x*sizeof(unsigned int));
+  cudaMallocManaged((void**)&dkeys_o, numElems*sizeof(unsigned int));
+  cudaMallocManaged((void**)&dvalues_o, numElems*sizeof(unsigned int));
 
   for (int i=0; i<iterations; i++){
     splitSort<<<grid,block>>>(numElems, i, dkeys, dvalues, dhisto);

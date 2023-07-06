@@ -73,8 +73,10 @@ int main(int argc, char** argv)
 
   fscanf(fp,"%d",&num_of_nodes);
   // allocate host memory
-  Node* h_graph_nodes = (Node*) malloc(sizeof(Node)*num_of_nodes);
-  int *color = (int*) malloc(sizeof(int)*num_of_nodes);
+  Node* h_graph_nodes;
+  cudaMallocManaged(&h_graph_nodes, sizeof(Node)*num_of_nodes);
+  int *color;
+  cudaMallocManaged(&color, sizeof(int)*num_of_nodes);
   int start, edgeno;   
   // initalize the memory
   for( unsigned int i = 0; i < num_of_nodes; i++) 
@@ -88,7 +90,8 @@ int main(int argc, char** argv)
   fscanf(fp,"%d",&source);
   fscanf(fp,"%d",&num_of_edges);
   int id,cost;
-  Edge* h_graph_edges = (Edge*) malloc(sizeof(Edge)*num_of_edges);
+  Edge* h_graph_edges;
+  cudaMallocManaged(&h_graph_edges, sizeof(Edge)*num_of_edges);
   for(int i=0; i < num_of_edges ; i++)
   {
     fscanf(fp,"%d",&id);
@@ -100,7 +103,8 @@ int main(int argc, char** argv)
     fclose(fp);    
 
   // allocate mem for the result on host side
-  int* h_cost = (int*) malloc( sizeof(int)*num_of_nodes);
+  int* h_cost;
+  cudaMallocManaged(&h_cost, sizeof(int)*num_of_nodes);
   for(int i = 0; i < num_of_nodes; i++){
     h_cost[i] = INF;
   }
@@ -108,30 +112,21 @@ int main(int argc, char** argv)
 
   pb_SwitchToTimer(&timers, pb_TimerID_COPY);
 
-  //Copy the Node list to device memory
-  //Copy the Node list to device memory
-  Node* d_graph_nodes;
-  cudaMalloc((void**) &d_graph_nodes, sizeof(Node)*num_of_nodes);
-  cudaMemcpy(d_graph_nodes, h_graph_nodes, sizeof(Node)*num_of_nodes, cudaMemcpyHostToDevice);
-  //Copy the Edge List to device Memory
-  Edge* d_graph_edges;
-  cudaMalloc((void**) &d_graph_edges, sizeof(Edge)*num_of_edges);
-  cudaMemcpy(d_graph_edges, h_graph_edges, sizeof(Edge)*num_of_edges, cudaMemcpyHostToDevice);
+  /*
+printf("=== h_graph_nodes:");
+  for (int i = 0; i<num_of_nodes; i++)  {
+	  printf("%d-%d ", h_graph_nodes[i].x, h_graph_nodes[i].y);
+  }
+  */
 
-  int* d_color;
-  cudaMalloc((void**) &d_color, sizeof(int)*num_of_nodes);
-  int* d_cost;
-  cudaMalloc((void**) &d_cost, sizeof(int)*num_of_nodes);
   int * d_q1;
   int * d_q2;
-  cudaMalloc((void**) &d_q1, sizeof(int)*num_of_nodes);
-  cudaMalloc((void**) &d_q2, sizeof(int)*num_of_nodes);
+  cudaMallocManaged((void**) &d_q1, sizeof(int)*num_of_nodes);
+  cudaMallocManaged((void**) &d_q2, sizeof(int)*num_of_nodes);
   int * tail;
   cudaMalloc((void**) &tail, sizeof(int));
   int *front_cost_d;
   cudaMalloc((void**) &front_cost_d, sizeof(int));
-  cudaMemcpy(d_color, color, sizeof(int)*num_of_nodes, cudaMemcpyHostToDevice);
-  cudaMemcpy(d_cost, h_cost, sizeof(int)*num_of_nodes, cudaMemcpyHostToDevice);
 
   printf("Starting GPU kernel\n");
   cudaThreadSynchronize();
@@ -141,9 +136,9 @@ int main(int argc, char** argv)
   int num_of_threads_per_block;
 
   cudaMemcpy(tail,&h_top,sizeof(int),cudaMemcpyHostToDevice);
-  cudaMemcpy(&d_cost[source],&zero,sizeof(int),cudaMemcpyHostToDevice);
+  h_cost[source] = zero;
 
-  cudaMemcpy( &d_q1[0], &source, sizeof(int), cudaMemcpyHostToDevice);
+  d_q1[0] = source;
   int num_t;//number of threads
   int k=0;//BFS level index
 
@@ -201,15 +196,15 @@ int main(int argc, char** argv)
 
     if(k%2 == 0){
       if(num_of_blocks == 1){
-        BFS_in_GPU_kernel<<< grid, threads >>>(d_q1,d_q2, d_graph_nodes, 
-            d_graph_edges, d_color, d_cost,num_t , tail,GRAY0,k,d_overflow);
+        BFS_in_GPU_kernel<<< grid, threads >>>(d_q1,d_q2, h_graph_nodes, 
+            h_graph_edges, color, h_cost,num_t , tail,GRAY0,k,d_overflow);
       }
       else if(num_of_blocks <= NUM_SM){
         (cudaMemcpy(num_td,&num_t,sizeof(int),
                     cudaMemcpyHostToDevice));
         BFS_kernel_multi_blk_inGPU
-          <<< grid, threads >>>(d_q1,d_q2, d_graph_nodes, 
-              d_graph_edges, d_color, d_cost, num_td, tail,GRAY0,k,
+          <<< grid, threads >>>(d_q1,d_q2, h_graph_nodes, 
+              h_graph_edges, color, h_cost, num_td, tail,GRAY0,k,
               switch_kd, max_nodes_per_block_d, global_kt_d,d_overflow);
         (cudaMemcpy(&switch_k,switch_kd, sizeof(int),
                     cudaMemcpyDeviceToHost));
@@ -218,21 +213,21 @@ int main(int argc, char** argv)
         }
       }
       else{
-        BFS_kernel<<< grid, threads >>>(d_q1,d_q2, d_graph_nodes, 
-            d_graph_edges, d_color, d_cost, num_t, tail,GRAY0,k,d_overflow);
+        BFS_kernel<<< grid, threads >>>(d_q1,d_q2, h_graph_nodes, 
+            h_graph_edges, color, h_cost, num_t, tail,GRAY0,k,d_overflow);
       }
     }
     else{
       if(num_of_blocks == 1){
-        BFS_in_GPU_kernel<<< grid, threads >>>(d_q2,d_q1, d_graph_nodes, 
-            d_graph_edges, d_color, d_cost, num_t, tail,GRAY1,k,d_overflow);
+        BFS_in_GPU_kernel<<< grid, threads >>>(d_q2,d_q1, h_graph_nodes, 
+            h_graph_edges, color, h_cost, num_t, tail,GRAY1,k,d_overflow);
       }
       else if(num_of_blocks <= NUM_SM){
         (cudaMemcpy(num_td,&num_t,sizeof(int),
                     cudaMemcpyHostToDevice));
         BFS_kernel_multi_blk_inGPU
-          <<< grid, threads >>>(d_q2,d_q1, d_graph_nodes, 
-              d_graph_edges, d_color, d_cost, num_td, tail,GRAY1,k,
+          <<< grid, threads >>>(d_q2,d_q1, h_graph_nodes, 
+              h_graph_edges, color, h_cost, num_td, tail,GRAY1,k,
               switch_kd, max_nodes_per_block_d, global_kt_d,d_overflow);
         (cudaMemcpy(&switch_k,switch_kd, sizeof(int),
                     cudaMemcpyDeviceToHost));
@@ -241,8 +236,8 @@ int main(int argc, char** argv)
         }
       }
       else{
-        BFS_kernel<<< grid, threads >>>(d_q2,d_q1, d_graph_nodes, 
-            d_graph_edges, d_color, d_cost, num_t, tail, GRAY1,k,d_overflow);
+        BFS_kernel<<< grid, threads >>>(d_q2,d_q1, h_graph_nodes, 
+            h_graph_edges, color, h_cost, num_t, tail, GRAY1,k,d_overflow);
       }
     }
     k++;
@@ -256,14 +251,6 @@ int main(int argc, char** argv)
   pb_SwitchToTimer(&timers, pb_TimerID_COPY);
   printf("GPU kernel done\n");
 
-  // copy result from device to host
-  cudaMemcpy(h_cost, d_cost, sizeof(int)*num_of_nodes, cudaMemcpyDeviceToHost);
-  cudaMemcpy(color, d_color, sizeof(int)*num_of_nodes, cudaMemcpyDeviceToHost);
-
-  cudaFree(d_graph_nodes);
-  cudaFree(d_graph_edges);
-  cudaFree(d_color);
-  cudaFree(d_cost);
   cudaFree(tail);
   cudaFree(front_cost_d);
   //Store the result into a file
@@ -275,10 +262,10 @@ int main(int argc, char** argv)
   fclose(fp);
 
   // cleanup memory
-  free( h_graph_nodes);
-  free( h_graph_edges);
-  free( color);
-  free( h_cost);
+  cudaFree( h_graph_nodes);
+  cudaFree( h_graph_edges);
+  cudaFree( color);
+  cudaFree( h_cost);
   pb_SwitchToTimer(&timers, pb_TimerID_NONE);
   pb_PrintTimerSet(&timers);
   pb_FreeParameters(params);

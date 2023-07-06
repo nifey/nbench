@@ -309,14 +309,13 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
   int xRegionIndex, yRegionIndex, zRegionIndex;
   int xOffset, yOffset, zOffset;
   int lnx, lny, lnz, lnall;
-  ener_t *regionZeroAddr, *thisRegion;
+  ener_t *thisRegion;
   ener_t *regionZeroCuda;
   int index, indexRegion;
 
   int c;
   int3 binDim;
   int nbins;
-  float4 *binBaseAddr, *binZeroAddr;
   float4 *binBaseCuda, *binZeroCuda;
   int *bincntBaseAddr, *bincntZeroAddr;
   Atoms *extra = NULL;
@@ -347,17 +346,16 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
   lnz = 8 * zRegionDim;
   lnall = lnx * lny * lnz;
 
-  /* will receive energies from CUDA */
-  regionZeroAddr = (ener_t *) malloc(lnall * sizeof(float));
-
   /* create bins */
   c = (int) ceil(cutoff * BIN_INVLEN);  /* count extra bins around lattice */
   binDim.x = (int) ceil(lnx * h * BIN_INVLEN) + 2*c;
   binDim.y = (int) ceil(lny * h * BIN_INVLEN) + 2*c;
   binDim.z = (int) ceil(lnz * h * BIN_INVLEN) + 2*c;
   nbins = binDim.x * binDim.y * binDim.z;
-  binBaseAddr = (float4 *) calloc(nbins * BIN_DEPTH, sizeof(float4));
-  binZeroAddr = binBaseAddr + ((c * binDim.y + c) * binDim.x + c) * BIN_DEPTH;
+  cudaMallocManaged((void **) &binBaseCuda, nbins * BIN_DEPTH * sizeof(float4));
+  CUERR;
+  memset(binBaseCuda, 0, nbins * BIN_DEPTH * sizeof(float4));
+  binZeroCuda = binBaseCuda + ((c * binDim.y + c) * binDim.x + c) * BIN_DEPTH;
 
   bincntBaseAddr = (int *) calloc(nbins, sizeof(int));
   bincntZeroAddr = bincntBaseAddr + (c * binDim.y + c) * binDim.x + c;
@@ -434,7 +432,7 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
 	  k >= -c && k < binDim.z - c &&
 	  atom[n].q != 0) {
 	int index = (k * binDim.y + j) * binDim.x + i;
-	float4 *bin = binZeroAddr + index * BIN_DEPTH;
+	float4 *bin = binZeroCuda + index * BIN_DEPTH;
 	int bindex = bincntZeroAddr[index];
 	if (bindex < BIN_DEPTH) {
 	  /* copy atom into bin and increase counter for this bin */
@@ -565,20 +563,14 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
     printf("Allocating %.2fMB on CUDA device for potentials\n",
            lnall * sizeof(float) / (double) (1024*1024));
   }
-  cudaMalloc((void **) &regionZeroCuda, lnall * sizeof(ener_t));
+  cudaMallocManaged((void **) &regionZeroCuda, lnall * sizeof(ener_t));
   CUERR;
-  cudaMemset(regionZeroCuda, 0, lnall * sizeof(ener_t));
+  memset(regionZeroCuda, 0, lnall * sizeof(ener_t));
   CUERR;
   if (verbose) {
     printf("Allocating %.2fMB on CUDA device for atom bins\n",
            nbins * BIN_DEPTH * sizeof(float4) / (double) (1024*1024));
   }
-  cudaMalloc((void **) &binBaseCuda, nbins * BIN_DEPTH * sizeof(float4));
-  CUERR;
-  cudaMemcpy(binBaseCuda, binBaseAddr, nbins * BIN_DEPTH * sizeof(float4),
-      cudaMemcpyHostToDevice);
-  CUERR;
-  binZeroCuda = binBaseCuda + ((c * binDim.y + c) * binDim.x + c) * BIN_DEPTH;
   cudaMemcpyToSymbol(NbrListLen, &nbrlistlen, sizeof(int), 0);
   CUERR;
   cudaMemcpyToSymbol(NbrList, nbrlist, nbrlistlen * sizeof(int3), 0);
@@ -624,13 +616,7 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
 
   /* copy result regions from CUDA device */
   pb_SwitchToTimer(timers, pb_TimerID_COPY);
-  cudaMemcpy(regionZeroAddr, regionZeroCuda, lnall * sizeof(ener_t),
-      cudaMemcpyDeviceToHost);
   CUERR;
-
-  /* free CUDA memory allocations */
-  cudaFree(regionZeroCuda);
-  cudaFree(binBaseCuda);
 
   /*
    * transpose on CPU, updating, producing the final lattice
@@ -649,7 +635,7 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
         xRegionIndex = (i >> 3);
         xOffset = (i & 7);
 
-        thisRegion = regionZeroAddr
+        thisRegion = regionZeroCuda
           + ((zRegionIndex * yRegionDim + yRegionIndex) * xRegionDim
               + xRegionIndex) * REGION_SIZE;
 
@@ -671,8 +657,8 @@ extern "C" int gpu_compute_cutoff_potential_lattice6overlap(
 
 
   /* cleanup memory allocations */
-  free(regionZeroAddr);
-  free(binBaseAddr);
+  cudaFree(regionZeroCuda);
+  cudaFree(binBaseCuda);
   free(bincntBaseAddr);
   free_atom(extra);
 

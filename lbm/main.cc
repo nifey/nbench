@@ -33,7 +33,6 @@ int main( int nArgs, char* arg[] ) {
 
 	static LBM_GridPtr TEMP_srcGrid;
 	//Setup TEMP datastructures
-	LBM_allocateGrid( (float**) &TEMP_srcGrid );
 	MAIN_parseCommandLine( nArgs, arg, &param, params );
 	MAIN_printInfo( &param );
 
@@ -48,15 +47,12 @@ int main( int nArgs, char* arg[] ) {
 		if( (t & 63) == 0 ) {
 			printf( "timestep: %i\n", t );
 #if 0
-			CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
-			LBM_showGridStatistics( *TEMP_srcGrid );
+			LBM_showGridStatistics( *CUDA_srcGrid );
 #endif
 		}
 	}
 
 	MAIN_finalize( &param );
-
-	LBM_freeGrid( (float**) &TEMP_srcGrid );
 
         pb_SwitchToTimer(&timers, pb_TimerID_NONE);
         pb_PrintTimerSet(&timers);
@@ -118,59 +114,35 @@ void MAIN_printInfo( const MAIN_Param* param ) {
 /*############################################################################*/
 
 void MAIN_initialize( const MAIN_Param* param ) {
-	static LBM_Grid TEMP_srcGrid, TEMP_dstGrid;
-
         pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
 	//Setup TEMP datastructures
-	LBM_allocateGrid( (float**) &TEMP_srcGrid );
-	LBM_allocateGrid( (float**) &TEMP_dstGrid );
-	LBM_initializeGrid( TEMP_srcGrid );
-	LBM_initializeGrid( TEMP_dstGrid );
+	LBM_allocateGrid( (float**) &CUDA_srcGrid );
+	LBM_allocateGrid( (float**) &CUDA_dstGrid );
+	LBM_initializeGrid( CUDA_srcGrid );
+	LBM_initializeGrid( CUDA_dstGrid );
 
         pb_SwitchToTimer(&timers, pb_TimerID_IO);
 	if( param->obstacleFilename != NULL ) {
-		LBM_loadObstacleFile( TEMP_srcGrid, param->obstacleFilename );
-		LBM_loadObstacleFile( TEMP_dstGrid, param->obstacleFilename );
+		LBM_loadObstacleFile( CUDA_srcGrid, param->obstacleFilename );
+		LBM_loadObstacleFile( CUDA_dstGrid, param->obstacleFilename );
 	}
 
         pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	LBM_initializeSpecialCellsForLDC( TEMP_srcGrid );
-	LBM_initializeSpecialCellsForLDC( TEMP_dstGrid );
-
-        pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	//Setup DEVICE datastructures
-	CUDA_LBM_allocateGrid( (float**) &CUDA_srcGrid );
-	CUDA_LBM_allocateGrid( (float**) &CUDA_dstGrid );
-
-	//Initialize DEVICE datastructures
-	CUDA_LBM_initializeGrid( (float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid );
-	CUDA_LBM_initializeGrid( (float**)&CUDA_dstGrid, (float**)&TEMP_dstGrid );
-
-        pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	LBM_showGridStatistics( TEMP_srcGrid );
-
-	LBM_freeGrid( (float**) &TEMP_srcGrid );
-	LBM_freeGrid( (float**) &TEMP_dstGrid );
+	LBM_initializeSpecialCellsForLDC( CUDA_srcGrid );
+	LBM_initializeSpecialCellsForLDC( CUDA_dstGrid );
+	LBM_showGridStatistics( CUDA_srcGrid );
 }
 
 /*############################################################################*/
 
 void MAIN_finalize( const MAIN_Param* param ) {
-	LBM_Grid TEMP_srcGrid;
-
-	//Setup TEMP datastructures
-	LBM_allocateGrid( (float**) &TEMP_srcGrid );
-
-        pb_SwitchToTimer(&timers, pb_TimerID_COPY);
-	CUDA_LBM_getDeviceGrid((float**)&CUDA_srcGrid, (float**)&TEMP_srcGrid);
-
         pb_SwitchToTimer(&timers, pb_TimerID_COMPUTE);
-	LBM_showGridStatistics( TEMP_srcGrid );
+	CUDA_LBM_syncrhonize();
+	LBM_showGridStatistics( CUDA_srcGrid );
 
-	LBM_storeVelocityField( TEMP_srcGrid, param->resultFilename, TRUE );
+	LBM_storeVelocityField( CUDA_srcGrid, param->resultFilename, TRUE );
 
-	LBM_freeGrid( (float**) &TEMP_srcGrid );
-	CUDA_LBM_freeGrid( (float**) &CUDA_srcGrid );
-	CUDA_LBM_freeGrid( (float**) &CUDA_dstGrid );
+	LBM_freeGrid( (float**) &CUDA_srcGrid );
+	LBM_freeGrid( (float**) &CUDA_dstGrid );
 }
 

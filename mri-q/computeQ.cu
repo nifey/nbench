@@ -134,12 +134,3 @@ void computeQ_GPU(int numK, int numX,
       (numK, QGridBase, x_d, y_d, z_d, Qr_d, Qi_d);
   }
 }
-
-void createDataStructsCPU(int numK, int numX, float** phiMag,
-	 float** Qr, float** Qi)
-{
-  posix_memalign((void**) phiMag, 16, numK * sizeof(float));
-  posix_memalign((void**) Qr, 16, numX * sizeof (float));
-  posix_memalign((void**) Qi, 16, numX * sizeof (float));
-}
-
