@@ -1,1 +1,1 @@
-./mri-q -i data/large/input/64_64_64_dataset.bin -o mri-q_output.txt
+./mri-q -i data/large/input/64_64_64_dataset.bin -o result.txt

@@ -1,0 +1,1 @@
+./bfs -i data/SF/input/graph_input.dat -o result.txt

@@ -1,0 +1,1 @@
+./mri-gridding -i data/small/input/small.uks -o result.txt -- 32 0

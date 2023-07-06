@@ -1,0 +1,1 @@
+./cutcp -i data/large/input/watbox.sl100.pqr -o result.txt

@@ -1,0 +1,1 @@
+./lbm -i data/long/input/120_120_150_ldc.of -o result.txt -- 3000
