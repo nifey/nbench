@@ -1,6 +1,6 @@
 sgemm: 
-	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
-		main.cu io.cc parboil_cuda.c \
+	nvcc -lcudart -I . -lm -lstdc++ --use_fast_math \
+		main.cu io.cu parboil_cuda.c \
 		-o sgemm
 
 clean :

@@ -1,5 +1,5 @@
 spmv: 
-	nvcc -lcudart -Wno-deprecated-declarations -I . -lm -lstdc++ --use_fast_math \
+	nvcc -lcudart -I . -lm -lstdc++ --use_fast_math \
 		-I common_src/convert-dataset \
 		./common_src/convert-dataset/convert_dataset.c \
 		./common_src/convert-dataset/mmio.c \
