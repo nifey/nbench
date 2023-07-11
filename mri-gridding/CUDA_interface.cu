@@ -231,24 +231,19 @@ void CUDA_interface (
 
   pb_SwitchToTimer(timers, pb_TimerID_COPY);
 
-  printf(">>>>> -2\n");
   // Copy back to the CPU the indices of the input elements that will be processed on the CPU
   int cpuStart = *(binCount_d+gridNumElems);
 
   int CPUbin_size = int(n)-int(cpuStart);
 
-  printf(">>>>> -1\n");
   int* CPUbin;
   cudaMallocManaged((void**)&CPUbin,CPUbin_size*sizeof(unsigned int));
-  printf(">>>>> 0=\n");
   cudaMemcpy(CPUbin, idxValue_d+cpuStart, CPUbin_size*sizeof(unsigned int), cudaMemcpyDeviceToHost);
-  printf(">>>>> 0.5\n");
 
   cudaFree(idxValue_d);
 #if USE_CUDPP
   cudaFree(binCount_d);
 #endif
-  printf(">>>>> 1\n");
 
   /* STEP 5: Perform the binning on the GPU. The results are computed in a gather fashion
    * where each thread computes the value of one output element by reading the relevant
@@ -260,7 +255,6 @@ void CUDA_interface (
 
   pb_SwitchToTimer(timers, pb_TimerID_KERNEL);
 
-  printf(">>>>> 2\n");
   dim3 block2 (dims.x,dims.y,dims.z);
   dim3 grid2 (size_x/dims.x, (size_y*size_z)/(4*dims.y*dims.z));
 
@@ -271,12 +265,10 @@ void CUDA_interface (
   qsort(CPUbin, CPUbin_size, sizeof(int), compare); //Sorting helps cache locality of input element array
   int num = gridding_CPU(n, params, sample, CPUbin, CPUbin_size, LUT, sizeLUT, &gridData_CPU, &sampleDensity_CPU, &indices_CPU);
 
-  printf(">>>>> 3\n");
   pb_SwitchToTimer(timers, pb_TimerID_COPY);
 
   /* Copying the results from the Device to the Host */
 
-  printf(">>>>> 4\n");
   pb_SwitchToTimer(timers, pb_TimerID_COMPUTE);
 
   /* STEP 6: Computing the contributions of the sample points handled by the Host
@@ -295,13 +287,10 @@ void CUDA_interface (
   }
 
   pb_SwitchToTimer(timers, pb_TimerID_COPY);
-  printf(">>>>> 5\n");
 
   cudaFree(CPUbin);
-  printf(">>>>> 6\n");
   cudaFree(binCount_d);
   cudaFree(sortedSample_d);
-  printf(">>>>> 7\n");
 
   pb_SwitchToTimer(timers, pb_TimerID_NONE);
 
