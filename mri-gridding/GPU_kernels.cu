@@ -23,11 +23,11 @@ typedef struct{
   float4* loc;
 } sampleArrayStruct;
 
-__constant__ float cutoff2_c;
-__constant__ float cutoff_c;
-__constant__ int gridSize_c[3];
-__constant__ int size_xy_c;
-__constant__ float _1overCutoff2_c;
+__device__ float cutoff2_c;
+__device__ float cutoff_c;
+__device__ int gridSize_c[3];
+__device__ int size_xy_c;
+__device__ float _1overCutoff2_c;
 
 __global__ void binning_kernel (unsigned int n, ReconstructionSample* sample_g, unsigned int* idxKey_g,
                                 unsigned int* idxValue_g, unsigned int* binCount_g, unsigned int binsize, unsigned int gridNumElems){

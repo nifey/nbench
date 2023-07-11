@@ -61,8 +61,8 @@
  */
 #define NBRLIST_DIM  11
 #define NBRLIST_MAXLEN (NBRLIST_DIM * NBRLIST_DIM * NBRLIST_DIM)
-__constant__ int NbrListLen;
-__constant__ int3 NbrList[NBRLIST_MAXLEN];
+__device__ int NbrListLen;
+__device__ int3 NbrList[NBRLIST_MAXLEN];
 
 
 /* Normally, we're summing electrostatic potential.  However, for

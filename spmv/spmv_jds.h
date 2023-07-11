@@ -9,8 +9,8 @@
   return -1; }}
   
 //constant memory
-__constant__ int jds_ptr_int[5000];
-__constant__ int sh_zcnt_int[5000];
+__device__ int jds_ptr_int[5000];
+__device__ int sh_zcnt_int[5000];
 
 __global__ void spmv_jds(float *dst_vector,
 							   const float *d_data,const int *d_index, const int *d_perm,

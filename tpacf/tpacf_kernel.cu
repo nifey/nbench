@@ -26,7 +26,7 @@ REAL** g_scanBlockSums;
 unsigned int g_numEltsAllocated = 0;
 unsigned int g_numLevelsAllocated = 0;
 
-__constant__ REAL dev_binb[NUM_BINS+1];
+__device__ REAL dev_binb[NUM_BINS+1];
 
 unsigned int NUM_SETS;
 unsigned int NUM_ELEMENTS;

@@ -33,7 +33,7 @@ struct kValues {
 
 /* Values in the k-space coordinate system are stored in constant memory
  * on the GPU */
-__constant__ __device__ kValues ck[KERNEL_Q_K_ELEMS_PER_GRID];
+__device__ __device__ kValues ck[KERNEL_Q_K_ELEMS_PER_GRID];
 
 __global__ void
 ComputePhiMag_GPU(float* phiR, float* phiI, float* phiMag, int numK) {
