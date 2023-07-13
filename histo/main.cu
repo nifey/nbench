@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
   unsigned int* global_overflow;
   unsigned char* final_histo;
 
-  cudaMallocManaged((void**)&ranges          , 2*sizeof(unsigned int));
+  cudaMalloc((void**)&ranges          , 2*sizeof(unsigned int));
   cudaMallocManaged((void**)&sm_mappings     , img_width*img_height*sizeof(uchar4));
   cudaMallocManaged((void**)&global_subhisto , BLOCK_X*img_width*histo_height*sizeof(unsigned int));
   cudaMallocManaged((void**)&global_histo    , img_width*histo_height*sizeof(unsigned short));
@@ -143,14 +143,15 @@ int main(int argc, char* argv[]) {
   pb_SwitchToTimer(&timers, pb_TimerID_KERNEL);
 
   for (int iter = 0; iter < numIterations; iter++) {
-    ranges[0] = UINT32_MAX;
-    ranges[1] = 0;
+    unsigned int ranges_h[2] = {UINT32_MAX, 0};
+    cudaMemcpy(ranges,ranges_h, 2*sizeof(unsigned int), cudaMemcpyHostToDevice);
 
     pb_SwitchToSubTimer(&timers, prescans , pb_TimerID_KERNEL);
 
     histo_prescan_kernel<<<dim3(PRESCAN_BLOCKS_X),dim3(PRESCAN_THREADS)>>>((unsigned int*)img, img_height*img_width, ranges);
     
     pb_SwitchToSubTimer(&timers, postpremems , pb_TimerID_KERNEL);
+    cudaMemcpy(ranges_h,ranges, 2*sizeof(unsigned int), cudaMemcpyDeviceToHost);
 
     memset(global_subhisto,0,img_width*histo_height*sizeof(unsigned int));
     
@@ -167,10 +168,10 @@ int main(int argc, char* argv[]) {
     pb_SwitchToSubTimer(&timers, mains, pb_TimerID_KERNEL);
     
     
-    histo_main_kernel<<<dim3(BLOCK_X, ranges[1]-ranges[0]+1), dim3(THREADS)>>>(
+    histo_main_kernel<<<dim3(BLOCK_X, ranges_h[1]-ranges_h[0]+1), dim3(THREADS)>>>(
                 (uchar4*)(sm_mappings),
                 img_height*img_width,
-                ranges[0], ranges[1],
+                ranges_h[0], ranges_h[1],
                 histo_height, histo_width,
                 (unsigned int*)(global_subhisto),
                 (unsigned int*)(global_histo),
@@ -180,7 +181,7 @@ int main(int argc, char* argv[]) {
     pb_SwitchToSubTimer(&timers, finals, pb_TimerID_KERNEL);
     
     histo_final_kernel<<<dim3(BLOCK_X*3), dim3(512)>>>(
-                ranges[0], ranges[1],
+                ranges_h[0], ranges_h[1],
                 histo_height, histo_width,
                 (unsigned int*)(global_subhisto),
                 (unsigned int*)(global_histo),
