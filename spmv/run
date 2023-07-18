@@ -1,1 +1,0 @@
-./spmv -i data/large/input/Dubcova3.mtx.bin,data/large/input/vector.bin -o result.txt
