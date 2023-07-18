@@ -10,11 +10,14 @@ mkdir $tmpdir
 tar xvf $1 --directory=$tmpdir
 for bench in `ls $tmpdir/datasets`
 do
-	if [ -d $bench/data ]
+	if [ -d $bench ]
 	then
-		echo "$bench/data alreadly exists. Skipping"
-		continue
+		if [ -d $bench/data ]
+		then
+			echo "$bench/data alreadly exists. Skipping"
+			continue
+		fi
+		mv $tmpdir/datasets/$bench $bench/data
 	fi
-	mv $tmpdir/datasets/$bench $bench/data
 done
 yes | rm -r $tmpdir
