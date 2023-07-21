@@ -1,1 +1,1 @@
-./lbm -i data/short/input/120_120_150_ldc.of -o result.txt -- 100
+./lbm -i data/short/input/120_120_150_ldc.of -o result.txt -- 10
