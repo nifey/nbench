@@ -8,7 +8,7 @@
 
 #define KB                      24
 #define BINS_PER_BLOCK          (KB * 1024)
-#define BLOCK_X         14
+#define BLOCK_X         1
 
 #define PRESCAN_THREADS     512
 #define PRESCAN_BLOCKS_X    64
